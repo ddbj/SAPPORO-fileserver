@@ -1,6 +1,6 @@
 # SAPPORO-fileserver
 
-The SAPPORO-fileserver is divided into file storage for input and file storage for output. File storage for input uses nginx. The file storage for output uses [Minio](https://www.minio.io), which is simple S3-compatible object storage.
+SAPPORO-fileserver is divided into file storage for input and file storage for output. File storage for input uses nginx. The file storage for output uses [Minio](https://www.minio.io), which is simple S3-compatible object storage.
 
 [Japanese Document](https://hackmd.io/s/rJHpJwkdE)
 
