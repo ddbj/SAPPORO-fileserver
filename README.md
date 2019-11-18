@@ -11,11 +11,32 @@ Using docker-compose
 ```shell
 $ git clone git@github.com:ddbj/SAPPORO-fileserver.git
 $ ./sapporo-fileserver up
+Start SAPPORO-fileserver up...
+
+  Access Key         : 9b92c81dc5dd16bb1977809ac68d553b
+  Secret Access Key  : 095d71e5fe2f496f04e9f729090db9f5
+
+Creating sapporo-fileserver-output ... done
+Creating sapporo-fileserver-input  ... done
+
+Please accsess in your brouwser:
+
+    Input Server   -  http://localhost:1123/
+    Output Server  -  http://localhost:1124/
+
+Finish SAPPORO-fileserver up...
 ```
+
+Start nginx and minio.
+
+- nginx (Input Server): `http://localhost:1123/`
+  - File root: `./data/input_data`
+- minio (Output Server): `http://localhost:1124/`
 
 ---
 
-```
+```shell
+$ ./sapporo-fileserver --help
 sapporo-fileserver is a set of management commands for SAPPORO-fileserver.
 
 Usage:
@@ -34,42 +55,42 @@ Option:
   -h, --help                  Print usage.
 ```
 
-## Deployment
-
-### Usage of File Storage for Input
-
-First, examine the path of dir in `docker-compose.yml` and edit `nginx.conf`.
+### Check minio keys
 
 ```shell
-$ pwd
-/home/ubuntu/SAPPORO/SAPPORO-fileserver
-$ vim nginx.conf
-
-    server {
-        listen 80;
-        listen [::]:80;
-        server_name localhost;
-        root /home/ubuntu/SAPPORO/SAPPORO-fileserver/data;    # HERE
-        location / {
-            autoindex on;
-        }
-
-$ docker-compose restart input
+$ ./sapporo-fileserver show-keys
+Start SAPPORO-fileserver show keys...
+Minio Access Key: 9b92c81dc5dd16bb1977809ac68d553b
+Minio Secret Key: 095d71e5fe2f496f04e9f729090db9f5
+Finish SAPPORO-fileserver show keys...
 ```
 
-In your browser, access to `localhost:1124`.
+### Down servers
 
-You can get the file URL, after change `localhost:1124` to `sapporo-fileserver-input`.
-
+```shell
+$ ./sapporo-fileserver down
+Start SAPPORO-fileserver down...
+Stopping sapporo-fileserver-input  ... done
+Stopping sapporo-fileserver-output ... done
+Removing sapporo-fileserver-input  ... done
+Removing sapporo-fileserver-output ... done
+Network sapporo-network is external, skipping
+Finish SAPPORO-fileserver down...
 ```
-http://localhost:1124/input/small.ERR034597_1.fq
 
-# ->
+## Deployment
 
-http://sapporo-fileserver-input/input/small.ERR034597_1.fq
-```
+### Input server (nginx)
 
-### Usage of File Storage for Output
+You can change the nginx settings. Edit `./etc/nginx/nginx.conf`.
+
+---
+
+You can download files from Host as `http://localhost:1123/file_path`
+
+If you want to download files from another container that shares a docker external network as `http://sapporo-fileserver-input:8080/file_path`
+
+### Output server (minio)
 
 In browser, access to `localhost:1123`.
 
@@ -107,10 +128,8 @@ The result is output as follows.
 The entity of output exists under `SAPPORO/SAPPORO-fileserver/data/sapporo`.
 
 ```shell
-$ cd data/sapporo
-$ ls
+$ ls ./output_data/sapporo
 cwl_upload
-$ cd cwl_upload
-$ ls
+$ ls ./output_data/sapporo/cwl_upload
 small.ERR034597_1_fastqc.html  small.ERR034597_1.trimmed_fastqc.html  small.ERR034597_1.trimmed.fq
 ```
