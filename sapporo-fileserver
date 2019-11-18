@@ -1,0 +1,463 @@
+#!/bin/bash
+SCRIPT_DIR=$(cd $(dirname $0) && pwd)
+cd $SCRIPT_DIR
+DOCKER_COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
+UID=$(id -u)
+GID=$(id -g)
+DOCKER_GID=$(cat /etc/group | grep docker | cut -d ":" -f 3)
+
+function show_base_usage() {
+  cat <<EOS
+sapporo-fileserver is a set of management commands for SAPPORO-fileserver.
+
+Usage:
+  sapporo-fileserver up [--access-key <KEY>] [--secret-access-key <KEY>]
+  sapporo-fileserver show-keys
+  sapporo-fileserver down
+  sapporo-fileserver clean
+  sapporo-fileserver input up
+  sapporo-fileserver input down
+  sapporo-fileserver input clean
+  sapporo-fileserver output up [--access-key <KEY>] [--secret-access-key <KEY>]
+  sapporo-fileserver output down
+  sapporo-fileserver output clean
+
+Option:
+  -h, --help                  Print usage.
+EOS
+}
+
+function check_docker() {
+  if !(type "docker" >/dev/null 2>&1); then
+    echo "[FATAL] Please install docker."
+    exit 1
+  else
+    if !(pgrep -f "docker" >/dev/null 2>&1); then
+      echo "[FATAL] The docker engine does not seem to be running."
+      exit 1
+    fi
+  fi
+}
+
+function check_docker_compose() {
+  if !(type "docker-compose" >/dev/null 2>&1); then
+    echo "[FATAL] Please install docker-compose."
+    exit 1
+  fi
+}
+
+function fileserver_up() {
+  MINIO_ACCESS_KEY=$(head /dev/urandom | md5sum | cut -d ' ' -f 1)
+  MINIO_SECRET_KEY=$(head /dev/urandom | md5sum | cut -d ' ' -f 1)
+  while [[ $# > 0 ]]; do
+    case $1 in
+    "-h" | "--help")
+      shift 1
+      if [[ $# -ne 0 ]]; then
+        printf "[FATAL] Unexpected Option or Args: $1\n\n"
+        show_base_usage
+        exit 1
+      fi
+      show_base_usage
+      exit 0
+      ;;
+    "--access-key")
+      if [[ -z $2 ]]; then
+        printf "[FATAL] Please enter the KEY.\n\n"
+        show_base_usage
+        exit 1
+      fi
+      MINIO_ACCESS_KEY=$2
+      shift 2
+      ;;
+    "--secret-access-key")
+      if [[ -z $2 ]]; then
+        printf "[FATAL] Please enter the KEY.\n\n"
+        show_base_usage
+        exit 1
+      fi
+      MINIO_SECRET_KEY=$2
+      shift 2
+      ;;
+    -*)
+      printf "[FATAL] Unexpected Option: $1\n\n"
+      show_base_usage
+      exit 1
+      ;;
+    *)
+      printf "[FATAL] Unexpected Args: $1\n\n"
+      show_base_usage
+      exit 1
+      ;;
+    esac
+  done
+  rm -rf $SCRIPT_DIR/etc/minio_keys.txt
+  echo "Minio Access Key: ${MINIO_ACCESS_KEY}" >>$SCRIPT_DIR/etc/minio_keys.txt
+  echo "Minio Secret Key: ${MINIO_SECRET_KEY}" >>$SCRIPT_DIR/etc/minio_keys.txt
+  check_docker
+  check_docker_compose
+
+  printf "Start SAPPORO-fileserver up...\n\n"
+  cat <<EOS
+  Access Key         : ${MINIO_ACCESS_KEY}
+  Secret Access Key  : ${MINIO_SECRET_KEY}
+EOS
+  printf "\n"
+  if [[ $(docker network ls | grep 'sapporo-network' | wc -l) == 0 ]]; then
+    echo "Creating the Docker network: sapporo-network"
+    docker network create sapporo-network
+  fi
+  PWD=$SCRIPT_DIR \
+    UID=$UID \
+    GID=$GID \
+    DOCKER_GID=$DOCKER_GID \
+    MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY} \
+    MINIO_SECRET_KEY=${MINIO_SECRET_KEY} \
+    SAPPORO_FILESERVER_INPUT_PORT=${SAPPORO_FILESERVER_INPUT_PORT:-1123} \
+    SAPPORO_FILESERVER_OUTPUT_PORT=${SAPPORO_FILESERVER_OUTPUT_PORT:-1124} \
+    docker-compose up -d
+  printf "\nPlease accsess in your brouwser:\n\n"
+  echo "    Input Server   -  http://localhost:${SAPPORO_FILESERVER_INPUT_PORT:-1123}/"
+  echo "    Output Server  -  http://localhost:${SAPPORO_FILESERVER_OUTPUT_PORT:-1124}/"
+  printf "\n"
+  printf "Finish SAPPORO-fileserver up...\n"
+  exit 0
+}
+
+function fileserver_show_keys() {
+  printf "Start SAPPORO-fileserver show keys...\n"
+  cat $SCRIPT_DIR/etc/minio_keys.txt
+  printf "Finish SAPPORO-fileserver show keys...\n"
+  exit 0
+}
+
+function fileserver_down() {
+  check_docker
+  check_docker_compose
+  printf "Start SAPPORO-fileserver down...\n"
+  docker-compose down
+  printf "Finish SAPPORO-fileserver down...\n"
+  exit 0
+}
+
+function fileserver_clean() {
+  printf "Start SAPPORO-fileserver clean...\n"
+  rm -rf $SCRIPT_DIR/data/input_data/*
+  rm -rf $SCRIPT_DIR/data/output_data/.minio.sys
+  rm -rf $SCRIPT_DIR/data/output_data/*
+  rm -rf $SCRIPT_DIR/etc/minio_keys.txt
+  rm -rf $SCRIPT_DIR/etc/nginx/cache/*
+  rm -rf $SCRIPT_DIR/etc/nginx/run/*
+  rm -rf $SCRIPT_DIR/log/minio/*
+  rm -rf $SCRIPT_DIR/log/nginx/*
+  printf "Finish SAPPORO-fileserver clean...\n"
+  exit 0
+}
+
+function fileserver_input_up() {
+  check_docker
+  check_docker_compose
+
+  printf "Start SAPPORO-fileserver input up...\n"
+  if [[ $(docker network ls | grep 'sapporo-network' | wc -l) == 0 ]]; then
+    echo "Creating the Docker network: sapporo-network"
+    docker network create sapporo-network
+  fi
+  PWD=$SCRIPT_DIR \
+    UID=$UID \
+    GID=$GID \
+    DOCKER_GID=$DOCKER_GID \
+    SAPPORO_FILESERVER_INPUT_PORT=${SAPPORO_FILESERVER_INPUT_PORT:-1123} \
+    docker-compose up -d input
+  printf "\nPlease accsess in your brouwser:\n\n"
+  echo "    http://localhost:${SAPPORO_FILESERVER_INPUT_PORT:-1123}/"
+  printf "\n"
+  printf "Finish SAPPORO-fileserver input up...\n"
+  exit 0
+}
+
+function fileserver_input_down() {
+  check_docker
+  check_docker_compose
+  printf "Start SAPPORO-fileserver input down...\n"
+  docker-compose down
+  printf "Finish SAPPORO-fileserver input down...\n"
+  exit 0
+}
+
+function fileserver_input_clean() {
+  printf "Start SAPPORO-fileserver input clean...\n"
+  rm -rf $SCRIPT_DIR/data/input_data/*
+  rm -rf $SCRIPT_DIR/etc/nginx/cache/*
+  rm -rf $SCRIPT_DIR/etc/nginx/run/*
+  rm -rf $SCRIPT_DIR/log/nginx/*
+  printf "Finish SAPPORO-fileserver input clean...\n"
+  exit 0
+}
+
+function fileserver_input() {
+  while [[ $# > 0 ]]; do
+    case $1 in
+    "-h" | "--help")
+      shift 1
+      if [[ $# -ne 0 ]]; then
+        printf "[FATAL] Unexpected Option or Args: $1\n\n"
+        show_base_usage
+        exit 1
+      fi
+      show_base_usage
+      exit 0
+      ;;
+    "up")
+      shift 1
+      if [[ $# -ne 0 ]]; then
+        printf "[FATAL] Unexpected Option or Args: $1\n\n"
+        show_base_usage
+        exit 1
+      fi
+      fileserver_input_up
+      ;;
+    "down")
+      shift 1
+      if [[ $# -ne 0 ]]; then
+        printf "[FATAL] Unexpected Option or Args: $1\n\n"
+        show_base_usage
+        exit 1
+      fi
+      fileserver_input_down
+      ;;
+    "clean")
+      shift 1
+      if [[ $# -ne 0 ]]; then
+        printf "[FATAL] Unexpected Option or Args: $1\n\n"
+        show_base_usage
+        exit 1
+      fi
+      fileserver_input_clean
+      ;;
+    -*)
+      printf "[FATAL] Unexpected Option: $1\n\n"
+      show_base_usage
+      exit 1
+      ;;
+    *)
+      printf "[FATAL] Unexpected Args: $1\n\n"
+      show_base_usage
+      exit 1
+      ;;
+    esac
+  done
+}
+
+function fileserver_output_up() {
+  MINIO_ACCESS_KEY=$(head /dev/urandom | md5sum | cut -d ' ' -f 1)
+  MINIO_SECRET_KEY=$(head /dev/urandom | md5sum | cut -d ' ' -f 1)
+  while [[ $# > 0 ]]; do
+    case $1 in
+    "-h" | "--help")
+      shift 1
+      if [[ $# -ne 0 ]]; then
+        printf "[FATAL] Unexpected Option or Args: $1\n\n"
+        show_base_usage
+        exit 1
+      fi
+      show_base_usage
+      exit 0
+      ;;
+    "--access-key")
+      if [[ -z $2 ]]; then
+        printf "[FATAL] Please enter the KEY.\n\n"
+        show_base_usage
+        exit 1
+      fi
+      MINIO_ACCESS_KEY=$2
+      shift 2
+      ;;
+    "--secret-access-key")
+      if [[ -z $2 ]]; then
+        printf "[FATAL] Please enter the KEY.\n\n"
+        show_base_usage
+        exit 1
+      fi
+      MINIO_SECRET_KEY=$2
+      shift 2
+      ;;
+    -*)
+      printf "[FATAL] Unexpected Option: $1\n\n"
+      show_base_usage
+      exit 1
+      ;;
+    *)
+      printf "[FATAL] Unexpected Args: $1\n\n"
+      show_base_usage
+      exit 1
+      ;;
+    esac
+  done
+  rm -rf $SCRIPT_DIR/etc/minio_keys.txt
+  echo "Minio Access Key: ${MINIO_ACCESS_KEY}" >>$SCRIPT_DIR/etc/minio_keys.txt
+  echo "Minio Secret Key: ${MINIO_SECRET_KEY}" >>$SCRIPT_DIR/etc/minio_keys.txt
+  check_docker
+  check_docker_compose
+
+  printf "Start SAPPORO-fileserver output up...\n\n"
+  cat <<EOS
+  Access Key         : ${MINIO_ACCESS_KEY}
+  Secret Access Key  : ${MINIO_SECRET_KEY}
+EOS
+  printf "\n"
+  if [[ $(docker network ls | grep 'sapporo-network' | wc -l) == 0 ]]; then
+    echo "Creating the Docker network: sapporo-network"
+    docker network create sapporo-network
+  fi
+  PWD=$SCRIPT_DIR \
+    UID=$UID \
+    GID=$GID \
+    DOCKER_GID=$DOCKER_GID \
+    MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY} \
+    MINIO_SECRET_KEY=${MINIO_SECRET_KEY} \
+    SAPPORO_FILESERVER_OUTPUT_PORT=${SAPPORO_FILESERVER_OUTPUT_PORT:-1124} \
+    docker-compose up -d output
+  printf "\nPlease accsess in your brouwser:\n\n"
+  echo "    http://localhost:${SAPPORO_FILESERVER_OUTPUT_PORT:-1124}/"
+  printf "\n"
+  printf "Finish SAPPORO-fileserver output up...\n"
+  exit 0
+}
+
+function fileserver_output_down() {
+  check_docker
+  check_docker_compose
+  printf "Start SAPPORO-fileserver output down...\n"
+  docker-compose down
+  printf "Finish SAPPORO-fileserver output down...\n"
+  exit 0
+}
+
+function fileserver_output_clean() {
+  printf "Start SAPPORO-fileserver output clean...\n"
+  rm -rf $SCRIPT_DIR/data/output_data/.minio.sys
+  rm -rf $SCRIPT_DIR/data/output_data/*
+  rm -rf $SCRIPT_DIR/etc/minio_keys.txt
+  rm -rf $SCRIPT_DIR/log/minio/*
+  printf "Finish SAPPORO-fileserver output clean...\n"
+  exit 0
+}
+
+function fileserver_output() {
+  while [[ $# > 0 ]]; do
+    case $1 in
+    "-h" | "--help")
+      shift 1
+      if [[ $# -ne 0 ]]; then
+        printf "[FATAL] Unexpected Option or Args: $1\n\n"
+        show_base_usage
+        exit 1
+      fi
+      show_base_usage
+      exit 0
+      ;;
+    "up")
+      shift 1
+      fileserver_output_up $@
+      ;;
+    "down")
+      shift 1
+      if [[ $# -ne 0 ]]; then
+        printf "[FATAL] Unexpected Option or Args: $1\n\n"
+        show_base_usage
+        exit 1
+      fi
+      fileserver_output_down
+      ;;
+    "clean")
+      shift 1
+      if [[ $# -ne 0 ]]; then
+        printf "[FATAL] Unexpected Option or Args: $1\n\n"
+        show_base_usage
+        exit 1
+      fi
+      fileserver_output_clean
+      ;;
+    -*)
+      printf "[FATAL] Unexpected Option: $1\n\n"
+      show_base_usage
+      exit 1
+      ;;
+    *)
+      printf "[FATAL] Unexpected Args: $1\n\n"
+      show_base_usage
+      exit 1
+      ;;
+    esac
+  done
+}
+
+if [[ $# == 0 ]]; then
+  show_base_usage
+  exit 1
+fi
+
+while [[ $# > 0 ]]; do
+  case $1 in
+  "-h" | "--help")
+    shift 1
+    if [[ $# -ne 0 ]]; then
+      printf "[FATAL] Unexpected Option or Args: $1\n\n"
+      show_base_usage
+      exit 1
+    fi
+    show_base_usage
+    exit 0
+    ;;
+  "up")
+    shift 1
+    fileserver_up $@
+    ;;
+  "show-keys")
+    shift 1
+    if [[ $# -ne 0 ]]; then
+      printf "[FATAL] Unexpected Option or Args: $1\n\n"
+      show_base_usage
+      exit 1
+    fi
+    fileserver_show_keys
+    ;;
+  "down")
+    shift 1
+    if [[ $# -ne 0 ]]; then
+      printf "[FATAL] Unexpected Option or Args: $1\n\n"
+      show_base_usage
+      exit 1
+    fi
+    fileserver_down
+    ;;
+  "clean")
+    shift 1
+    if [[ $# -ne 0 ]]; then
+      printf "[FATAL] Unexpected Option or Args: $1\n\n"
+      show_base_usage
+      exit 1
+    fi
+    fileserver_clean
+    ;;
+  "input")
+    shift 1
+    fileserver_input $@
+    ;;
+  "output")
+    shift 1
+    fileserver_output $@
+    ;;
+  -*)
+    printf "[FATAL] Unexpected Option: $1\n\n"
+    show_base_usage
+    exit 1
+    ;;
+  *)
+    printf "[FATAL] Unexpected Args: $1\n\n"
+    show_base_usage
+    exit 1
+    ;;
+  esac
+done
