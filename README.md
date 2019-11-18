@@ -1,27 +1,42 @@
 # SAPPORO-fileserver
 
-SAPPORO-fileserver is divided into file storage for input and file storage for output. File storage for input uses nginx. The file storage for output uses [Minio](https://www.minio.io) which is a simple S3 compatible object storage.
+The SAPPORO-fileserver is divided into file storage for input and file storage for output. File storage for input uses nginx. The file storage for output uses [Minio](https://www.minio.io), which is simple S3-compatible object storage.
 
 [Japanese Document](https://hackmd.io/s/rJHpJwkdE)
 
-## Deployment
+## Usage
 
-Using docker-compose.
+Using docker-compose
 
 ```shell
-$ git clone https://github.com/suecharo/SAPPORO.git
-$ cd SAPPORO/SAPPORO-fileserver
-$ vim docker-compose.yml
-
-# Edit HERE!
-environment:
-    MINIO_ACCESS_KEY: access_key
-    MINIO_SECRET_KEY: secret_access_key
-
-$ docker-compose up -d
+$ git clone git@github.com:ddbj/SAPPORO-fileserver.git
+$ ./sapporo-fileserver up
 ```
 
-## Usage of File Storage for Input
+---
+
+```
+sapporo-fileserver is a set of management commands for SAPPORO-fileserver.
+
+Usage:
+  sapporo-fileserver up [--access-key <KEY>] [--secret-access-key <KEY>]
+  sapporo-fileserver show-keys
+  sapporo-fileserver down
+  sapporo-fileserver clean
+  sapporo-fileserver input up
+  sapporo-fileserver input down
+  sapporo-fileserver input clean
+  sapporo-fileserver output up [--access-key <KEY>] [--secret-access-key <KEY>]
+  sapporo-fileserver output down
+  sapporo-fileserver output clean
+
+Option:
+  -h, --help                  Print usage.
+```
+
+## Deployment
+
+### Usage of File Storage for Input
 
 First, examine the path of dir in `docker-compose.yml` and edit `nginx.conf`.
 
@@ -54,8 +69,7 @@ http://localhost:1124/input/small.ERR034597_1.fq
 http://sapporo-fileserver-input/input/small.ERR034597_1.fq
 ```
 
-## Usage of File Storage for Output
-
+### Usage of File Storage for Output
 
 In browser, access to `localhost:1123`.
 
