@@ -82,7 +82,8 @@ $RECYCLE.BIN/
 ### Our settings
 
 data/
-log/
 etc/minio_keys.txt
+etc/nginx/run/
+log/
 
 !.gitkeep
