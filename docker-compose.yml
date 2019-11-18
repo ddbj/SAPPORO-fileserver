@@ -29,7 +29,8 @@ services:
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-secret_access_key}
       - MINIO_USERNAME=${UID:-0}
     user: ${UID:-0}:${GID:-0}
-    command: ["server", "--address", "0.0.0.0:8080", "/data"]
+    entrypoint: ""
+    command: ["minio", "server", "--address", "0.0.0.0:8080", "/data"]
     networks:
       - sapporo
     ports:

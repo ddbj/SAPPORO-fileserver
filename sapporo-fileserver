@@ -4,7 +4,6 @@ set -eu
 SCRIPT_DIR=$(cd $(dirname $0) && pwd)
 cd $SCRIPT_DIR
 DOCKER_COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
-GID=$(id -g)
 DOCKER_GID=$(cat /etc/group | grep docker | cut -d ":" -f 3)
 
 function show_base_usage() {
@@ -108,8 +107,10 @@ EOS
     echo "Creating the Docker network: sapporo-network"
     docker network create sapporo-network
   fi
-  PWD=$SCRIPT_DIR \
-    GID=$GID \
+  env \
+    PWD=$SCRIPT_DIR \
+    UID=$(id -u) \
+    GID=$(id -g) \
     DOCKER_GID=$DOCKER_GID \
     MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY} \
     MINIO_SECRET_KEY=${MINIO_SECRET_KEY} \
@@ -151,8 +152,10 @@ function fileserver_input_up() {
     echo "Creating the Docker network: sapporo-network"
     docker network create sapporo-network
   fi
-  PWD=$SCRIPT_DIR \
-    GID=$GID \
+  env \
+    PWD=$SCRIPT_DIR \
+    UID=$(id -u) \
+    GID=$(id -g) \
     DOCKER_GID=$DOCKER_GID \
     SAPPORO_FILESERVER_INPUT_PORT=${SAPPORO_FILESERVER_INPUT_PORT:-1123} \
     docker-compose up -d input
@@ -290,8 +293,10 @@ EOS
     echo "Creating the Docker network: sapporo-network"
     docker network create sapporo-network
   fi
-  PWD=$SCRIPT_DIR \
-    GID=$GID \
+  env \
+    PWD=$SCRIPT_DIR \
+    UID=$(id -u) \
+    GID=$(id -g) \
     DOCKER_GID=$DOCKER_GID \
     MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY} \
     MINIO_SECRET_KEY=${MINIO_SECRET_KEY} \
