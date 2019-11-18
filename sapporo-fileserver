@@ -1,8 +1,9 @@
-#!/bin/bash
+# #!/bin/bash
+set -eu
+
 SCRIPT_DIR=$(cd $(dirname $0) && pwd)
 cd $SCRIPT_DIR
 DOCKER_COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
-UID=$(id -u)
 GID=$(id -g)
 DOCKER_GID=$(cat /etc/group | grep docker | cut -d ":" -f 3)
 
@@ -45,6 +46,9 @@ function check_docker_compose() {
     exit 1
   fi
 }
+
+check_docker
+check_docker_compose
 
 function fileserver_up() {
   MINIO_ACCESS_KEY=$(head /dev/urandom | md5sum | cut -d ' ' -f 1)
@@ -91,24 +95,20 @@ function fileserver_up() {
       ;;
     esac
   done
-  rm -rf $SCRIPT_DIR/etc/minio_keys.txt
+  rm -f $SCRIPT_DIR/etc/minio_keys.txt
   echo "Minio Access Key: ${MINIO_ACCESS_KEY}" >>$SCRIPT_DIR/etc/minio_keys.txt
   echo "Minio Secret Key: ${MINIO_SECRET_KEY}" >>$SCRIPT_DIR/etc/minio_keys.txt
-  check_docker
-  check_docker_compose
-
   printf "Start SAPPORO-fileserver up...\n\n"
   cat <<EOS
   Access Key         : ${MINIO_ACCESS_KEY}
   Secret Access Key  : ${MINIO_SECRET_KEY}
 EOS
   printf "\n"
-  if [[ $(docker network ls | grep 'sapporo-network' | wc -l) == 0 ]]; then
+  if [[ $(docker network ls | grep 'sapporo-network' | wc -l | awk '{print $1}') == 0 ]]; then
     echo "Creating the Docker network: sapporo-network"
     docker network create sapporo-network
   fi
   PWD=$SCRIPT_DIR \
-    UID=$UID \
     GID=$GID \
     DOCKER_GID=$DOCKER_GID \
     MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY} \
@@ -132,8 +132,6 @@ function fileserver_show_keys() {
 }
 
 function fileserver_down() {
-  check_docker
-  check_docker_compose
   printf "Start SAPPORO-fileserver down...\n"
   docker-compose down
   printf "Finish SAPPORO-fileserver down...\n"
@@ -142,29 +140,18 @@ function fileserver_down() {
 
 function fileserver_clean() {
   printf "Start SAPPORO-fileserver clean...\n"
-  rm -rf $SCRIPT_DIR/data/input_data/*
-  rm -rf $SCRIPT_DIR/data/output_data/.minio.sys
-  rm -rf $SCRIPT_DIR/data/output_data/*
-  rm -rf $SCRIPT_DIR/etc/minio_keys.txt
-  rm -rf $SCRIPT_DIR/etc/nginx/cache/*
-  rm -rf $SCRIPT_DIR/etc/nginx/run/*
-  rm -rf $SCRIPT_DIR/log/minio/*
-  rm -rf $SCRIPT_DIR/log/nginx/*
+  git clean -fdx
   printf "Finish SAPPORO-fileserver clean...\n"
   exit 0
 }
 
 function fileserver_input_up() {
-  check_docker
-  check_docker_compose
-
   printf "Start SAPPORO-fileserver input up...\n"
-  if [[ $(docker network ls | grep 'sapporo-network' | wc -l) == 0 ]]; then
+  if [[ $(docker network ls | grep 'sapporo-network' | wc -l | awk '{print $1}') == 0 ]]; then
     echo "Creating the Docker network: sapporo-network"
     docker network create sapporo-network
   fi
   PWD=$SCRIPT_DIR \
-    UID=$UID \
     GID=$GID \
     DOCKER_GID=$DOCKER_GID \
     SAPPORO_FILESERVER_INPUT_PORT=${SAPPORO_FILESERVER_INPUT_PORT:-1123} \
@@ -177,8 +164,6 @@ function fileserver_input_up() {
 }
 
 function fileserver_input_down() {
-  check_docker
-  check_docker_compose
   printf "Start SAPPORO-fileserver input down...\n"
   docker-compose down
   printf "Finish SAPPORO-fileserver input down...\n"
@@ -187,10 +172,7 @@ function fileserver_input_down() {
 
 function fileserver_input_clean() {
   printf "Start SAPPORO-fileserver input clean...\n"
-  rm -rf $SCRIPT_DIR/data/input_data/*
-  rm -rf $SCRIPT_DIR/etc/nginx/cache/*
-  rm -rf $SCRIPT_DIR/etc/nginx/run/*
-  rm -rf $SCRIPT_DIR/log/nginx/*
+  git clean -fdx
   printf "Finish SAPPORO-fileserver input clean...\n"
   exit 0
 }
@@ -294,11 +276,9 @@ function fileserver_output_up() {
       ;;
     esac
   done
-  rm -rf $SCRIPT_DIR/etc/minio_keys.txt
+  rm -f $SCRIPT_DIR/etc/minio_keys.txt
   echo "Minio Access Key: ${MINIO_ACCESS_KEY}" >>$SCRIPT_DIR/etc/minio_keys.txt
   echo "Minio Secret Key: ${MINIO_SECRET_KEY}" >>$SCRIPT_DIR/etc/minio_keys.txt
-  check_docker
-  check_docker_compose
 
   printf "Start SAPPORO-fileserver output up...\n\n"
   cat <<EOS
@@ -306,12 +286,11 @@ function fileserver_output_up() {
   Secret Access Key  : ${MINIO_SECRET_KEY}
 EOS
   printf "\n"
-  if [[ $(docker network ls | grep 'sapporo-network' | wc -l) == 0 ]]; then
+  if [[ $(docker network ls | grep 'sapporo-network' | wc -l | awk '{print $1}') == 0 ]]; then
     echo "Creating the Docker network: sapporo-network"
     docker network create sapporo-network
   fi
   PWD=$SCRIPT_DIR \
-    UID=$UID \
     GID=$GID \
     DOCKER_GID=$DOCKER_GID \
     MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY} \
@@ -326,8 +305,6 @@ EOS
 }
 
 function fileserver_output_down() {
-  check_docker
-  check_docker_compose
   printf "Start SAPPORO-fileserver output down...\n"
   docker-compose down
   printf "Finish SAPPORO-fileserver output down...\n"
@@ -336,10 +313,7 @@ function fileserver_output_down() {
 
 function fileserver_output_clean() {
   printf "Start SAPPORO-fileserver output clean...\n"
-  rm -rf $SCRIPT_DIR/data/output_data/.minio.sys
-  rm -rf $SCRIPT_DIR/data/output_data/*
-  rm -rf $SCRIPT_DIR/etc/minio_keys.txt
-  rm -rf $SCRIPT_DIR/log/minio/*
+  git clean -fdx
   printf "Finish SAPPORO-fileserver output clean...\n"
   exit 0
 }
