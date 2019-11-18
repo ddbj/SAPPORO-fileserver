@@ -83,5 +83,6 @@ $RECYCLE.BIN/
 
 data/
 log/
+etc/minio_keys.txt
 
 !.gitkeep
