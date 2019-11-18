@@ -16,7 +16,7 @@ services:
     ports:
       - ${SAPPORO_FILESERVER_INPUT_PORT:-1123}:8080
   output:
-    image: minio/minio:RELEASE.2019-07-17T22-54-12Z
+    image: minio/minio:RELEASE.2019-10-12T01-39-57Z
     container_name: sapporo-fileserver-output
     restart: always
     volumes:
